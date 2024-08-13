@@ -1,0 +1,242 @@
+$gap: 4px;
+
+:root {
+	--color-1: #000000;
+	--color-2: #282c34;
+	--color-3: gray;
+	--color-4: gray;
+	--color-5: gray;
+	--color-6: #ffffff;
+
+	--color-border: var(--color-1);
+	--color-bg: var(--color-2);
+	--color-fg: var(--color-3);
+	--color-text: var(--color-6);
+}
+
+.spacing-gap {
+	display: block;
+	width: calc($gap * var(--gap-factor, 4));
+	height: calc($gap * var(--gap-factor, 4));
+}
+
+.App {
+	background-color: var(--color-bg);
+	min-height: 100vh;
+  width: 100%;
+	color: var(--color-text);
+	padding: 10px;
+}
+
+.vbox, .hbox {
+	display: flex;
+	&.vbox {
+		flex-flow: column nowrap;
+	}
+	&.hbox {
+		flex-flow: row nowrap;
+	}
+	&.gap {
+		gap: $gap;
+	}
+}
+
+@mixin box-outline($width: 2px, $color: var(--color-border)) {
+	box-shadow: $color $width $width,
+	$color (-$width) $width,
+	$color $width (-$width),
+	$color (-$width) (-$width);
+}
+
+.color-tile {
+	width: 50px;
+	height: 50px;
+	--transform: scale(1.0);
+
+	*, &::after {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
+	
+	&.pressed {
+		--transform: scale(0.5);
+		&::after {
+			transition: none;
+		}
+		.root {
+			transition: none;
+			:hover & :is(.left, .right, .top, .bottom) {
+				backdrop-filter: invert(0.0);
+				transition: none;
+			}
+		}
+	}
+	
+	&::after {
+		content: "";
+		position: relative;
+		transform: var(--transform);
+		transition: transform 1.0s cubic-bezier(0, 0, 0, 1.1);
+		top: -100%;
+		z-index: -1;
+		@include box-outline($width: 2px, $color: var(--color-border));
+	}
+	
+	@keyframes brightness {
+		from { filter: brightness(0); }
+		to { filter: brightness(1); }
+	}
+	@keyframes scale {
+		from { transform: scaleX(1.0); }
+		1% { transform: scaleX(5.0); }
+		to { filter: scaleX(1.0); }
+	}
+	
+	.root {
+		position: relative;
+		transform: var(--transform);
+		--w: 0px;
+		transition: transform 1.0s cubic-bezier(0, 0, 0, 1.1);
+		.pressed & {
+			transition: transform 0.1s cubic-bezier(0, 0, 0, 1.1);
+		}
+
+		& > :is(.left, .right, .top, .bottom) {
+			position: absolute;
+			transition: all 1.0s cubic-bezier(0, 0, 0, 1.1);
+			backdrop-filter: invert(0.0) grayscale(0.0);
+		}
+
+		&:hover {
+			--w: 8px;
+			& > :is(.left, .right, .top, .bottom) {
+				transition: all 0.1s cubic-bezier(0, 0, 0, 1.1);
+				backdrop-filter: invert(1.0) grayscale(1.0);
+			}
+		}
+
+		& > .top {
+			position: absolute;
+			height: var(--w);
+			top: 0;
+		}
+		& > .bottom {
+			position: absolute;
+			height: var(--w);
+			bottom: 0;
+		}
+		& > .left {
+			position: absolute;
+			width: var(--w);
+			top: var(--w);
+			height: calc(100% - var(--w) * 2);
+			left: 0;
+		}
+		& > .right {
+			position: absolute;
+			width: var(--w);
+			top: var(--w);
+			height: calc(100% - var(--w) * 2);
+			right: 0;
+		}
+	}
+}
+
+.color-palette {
+	isolation: isolate;
+	display: inline-flex;
+	flex-flow: row wrap;
+	margin: $gap;
+}
+
+input[type=number], select, button {
+	margin: $gap;
+	color: var(--color-text);
+	border-width: 1px;
+	border-style: solid;
+	border-radius: 0.25rem;
+	border-color: var(--color-border);
+	background-color: var(--color-fg);
+}
+
+code {
+	background-color: var(--color-fg);
+	transition: filter 1.0s cubic-bezier(0, 0, 0, 1.1);
+	filter: brightness(100%);
+	border: solid 1px var(--color-border);
+	padding: calc($gap / 8) $gap;
+	border-radius: 0.5rem;
+	margin: calc($gap / 8);
+
+	&.pressed {
+		filter: brightness(500%);
+		transition: none;
+	}
+}
+
+@mixin slider-thumb {
+	display: block;
+	appearance: none;
+	height: 22px;
+	width: 10px;
+	border-radius: 0.25rem;
+	border: solid 1px var(--color-border);
+	background-color: var(--color-text);
+	color: white;
+}
+
+input[type=range] {
+	border: solid 1px var(--color-border);
+	background-color: var(--color-fg);
+	border-radius: 0.5rem;
+	appearance: none;
+	height: 18px;
+
+	&::-webkit-slider-thumb {
+		@include slider-thumb;
+	}
+	&::-moz-range-thumb {
+		@include slider-thumb;
+	}
+}
+
+input[type=color] {
+	padding: 0 calc($gap / 2);
+	width: 50px;
+	background-color: transparent;
+	border: none;
+}
+
+.color-picker {
+	isolation: isolate;
+	position: relative;
+	margin: $gap ($gap * 2);
+	flex-basis: 50px;
+
+	.color-tile {
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		left: 0;
+		height: 100%;
+	}
+	input[type=color] {
+		position: absolute;
+		padding: 0;
+		top: 0;
+		left: 0;
+		height: 100%;
+	}
+}
+
+
+@media print {
+	.color-tile {
+		&, > * {
+			color-adjust: exact;
+			-webkit-print-color-adjust: exact;
+			print-color-adjust: exact;
+		}
+	}
+}
