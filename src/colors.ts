@@ -237,7 +237,7 @@ export function generateHslPalette(settings: PaletteSettings): NormalizedSrgbCol
 
 	const srgb = clampColor(oklchToSrgb(settings.startingColor));
 	const [hueBase, saturationBase, lightnessBase] = rgbToHsl(srgb);
-	let saturationStep = lerp(0.1, 1 - saturationBase, settings.saturationStep);
+	let saturationStep = lerp(0.0, 0.5, settings.saturationStep);
 	let lightnessStep = lerp(0.1, 1 - lightnessBase, settings.luminanceStep);
 	
 	for (let i = 0; i < settings.colorCount; ++i) {
@@ -245,7 +245,7 @@ export function generateHslPalette(settings: PaletteSettings): NormalizedSrgbCol
 
 		const hueOffset = paletteStep(i, settings);
 
-		let saturation = saturationBase + linearIterator * saturationStep;
+		let saturation = clamp(saturationBase + linearIterator * saturationStep, 0.0, 1.0);
 		let lightness = lightnessBase + linearIterator * lightnessStep;
 
 		if (settings.chromaFixed) saturation = settings.saturation ?? saturationBase;
@@ -270,14 +270,14 @@ export function generateHsvPalette(settings: PaletteSettings): NormalizedSrgbCol
 
 	const [hueBase, saturationBase, valueBase] = rgbToHsv(oklchToSrgb(settings.startingColor));
 
-	let saturationStep = lerp(0.1, 1 - saturationBase, settings.saturationStep);
+	let saturationStep = lerp(0.0, 0.5, settings.saturationStep);
 	let valueStep = lerp(0.1, 1 - valueBase, settings.luminanceStep);
 
 	for (let i = 0; i < settings.colorCount; ++i) {
 		let linearIterator = (i) / (settings.colorCount - 1);
 		const hueOffset = paletteStep(i, settings);
 
-		let saturation = saturationBase + linearIterator * saturationStep;
+		let saturation = clamp(saturationBase + linearIterator * saturationStep, 0.0, 1.0);
 		let value = valueBase + linearIterator * valueStep;
 
 		if (settings.chromaFixed) saturation = settings.saturation ?? saturationBase;
@@ -293,7 +293,7 @@ export function generateOklchPalette(settings: PaletteSettings): NormalizedSrgbC
 	let oklchColors: NormalizedSrgbColor[] = []
 
 	const [lightnessBase, chromaBase, hueBase] = settings.startingColor;
-	let chromaStep = lerp(0.075, 0.125 - chromaBase, settings.saturationStep);
+	let chromaStep = lerp(0.0, 0.35, settings.saturationStep);
 	let luminanceStep = lerp(0.3, 1.0 - lightnessBase, settings.luminanceStep);
 
 	for (let i = 0; i < settings.colorCount; ++i) {
@@ -301,7 +301,7 @@ export function generateOklchPalette(settings: PaletteSettings): NormalizedSrgbC
 
 		const hueOffset = paletteStep(i, settings);
 
-		let chroma = chromaBase + linearIterator * chromaStep;
+		let chroma = clamp(chromaBase + linearIterator * chromaStep, 0.0, 1.0);
 		let lightness = lightnessBase + linearIterator * luminanceStep;
 
 		if (settings.chromaFixed) chroma = lerp(0.000, 0.250, settings.saturation) ?? chromaBase;

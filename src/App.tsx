@@ -94,6 +94,8 @@ function ColorInfo({ color: rgb }: { color: NormalizedSrgbColor }) {
 	const hex = rgbToHex(rgbu8);
 	const lab = colors.linearSrgbToOklab(rgbLinear)
 	const lch = colors.oklabToOklch(lab);
+	const hsl = colors.rgbToHsl(rgb);
+	const hsv = colors.rgbToHsv(rgb);
 	
 	function vecToString(color: colors.Vec3, integral?: boolean, suffix = ""): string {
 		return color.map(n => integral ? n : n.toFixed(PRECISION).replace(/(?<!\.)0+$/, '') + suffix).join(', ');
@@ -107,6 +109,8 @@ function ColorInfo({ color: rgb }: { color: NormalizedSrgbColor }) {
 		<Copyable text={`rgb(${vecToString(rgb)})`} />
 		<Copyable text={`vec3(${vecToString(rgbLinear)})`} />
 		<Copyable text={`vec3(${vecToString(rgbLinear, false, 'f')})`} />
+		<Copyable text={`hsl(${vecToString(hsl)})`} />
+		<Copyable text={`hsv(${vecToString(hsv)})`} />
 		<Copyable text={`oklch(${vecToString(lch)})`} />
 		<Copyable text={`oklab(${vecToString(lab)})`} />
 		<Gap />
@@ -163,16 +167,20 @@ function Gap({ gap = 4 }: { gap?: number }) {
 	return <div className="spacing-gap" style={{'--gap-factor': gap} as React.CSSProperties} />
 }
 
-function Slider({ value, name, set }: { value: number, name: ReactNode, set: (arg0: number) => void }) {
+function Slider({ value, name, set, inFn, outFn, ...htmlProps }: React.ComponentProps<'input'> & { value: number, name: ReactNode, set: (arg0: number) => void, inFn?: (n: number) => number, outFn?: (n: number) => number }) {
 	return <Labelled
 		text={name}
 		inline={
-			<input style={{flexGrow: 0}} type="number" min="0.0" max="1.0" step="0.0001" value={value.toFixed(PRECISION)} onChange={(e) => set(+e.target.value)} />
+			<input style={{flexGrow: 0}} type="number" min="0.0" max="1.0" step="0.0001" value={value.toFixed(PRECISION)} onChange={(e) => set(+e.target.value)} {...htmlProps} />
 		}
 	>
-		<input type="range" min="0.0" max="1.0" step="any" value={value} onChange={(e) => set(+e.target.value)} />
+		<input type="range" min="0.0" max="1.0" step="any" value={inFn ? inFn(value) : value} onChange={(e) => set(outFn ? outFn(+e.target.value) : +e.target.value)} {...htmlProps} />
 	</Labelled>;
 }
+
+// TODO: ctrl-V to paste to starting color
+// TODO: copy palette as array literal
+// TODO: fix saturation step
 
 function ColorPalettes({paletteSettings}: { paletteSettings: colors.PaletteSettings }) {
 	const [hsl, hsv, lch] = generatePalettes(paletteSettings);
@@ -220,8 +228,8 @@ function App() {
 		const lch = srgbToOklch(rgb);
 		setLch(lch);
 		setLuminanceStep(randomRange(0.25, 1.0));
-		setHueStep(randomRange(0.0, 0.66));
-		setSaturationStep(Math.random());
+		setHueStep(randomRange(-0.66, 0.66));
+		setSaturationStep(randomRange(0.0, 0.5));
 		setSaturation(Math.random()/2);
 	}
 	
@@ -245,7 +253,7 @@ function App() {
 		saturationStep,
 		luminanceStep,
 		colorCount: Math.max(2, isNaN(colorCount) ? 0 : colorCount),
-		chromaFixed: saturationFixed,
+		chromaFixed: !monochromatic && saturationFixed,
 		hueFixed: monochromatic,
 		luminanceFixed: luminanceFixed,
 		saturation: saturation,
@@ -284,7 +292,7 @@ function App() {
 									>
 										<div className="vbox" style={{flexGrow: 1}}>
 											<Slider name={'[L] luminance'} value={l} set={(n) => setL(n)} />
-											<Slider name={'[c] chroma'} value={Math.cbrt(c)} set={(n) => setC(n**3)} />
+											<Slider name={'[c] chroma'} value={c} inFn={n => Math.cbrt(n)} outFn={n => n**3} set={(n) => setC(n)} />
 											<Slider name={'[h] hue'} value={h} set={setH} />
 										</div>
 										<ColorPicker set={setLch} value={[l, c, h]} />
@@ -296,20 +304,20 @@ function App() {
 									<Gap />
 									<Checkbox label="monochromatic" checked={monochromatic} onChange={e => setMonochromatic(e.target.checked)} />
 									{!monochromatic ? <>
-										<Slider name='hue step' value={hueStep} set={setHueStep} />
+										<Slider name='hue step' min={-1.0} max={1.0} value={hueStep} set={setHueStep} />
 										<Checkbox label="constant lightness" checked={luminanceFixed} onChange={e => setLuminanceFixed(e.target.checked)} />
 										{!luminanceFixed ?
 											<Slider name='lightness step' value={luminanceStep} set={setLuminanceStep} />
 										: null}
 										<Checkbox label="constant saturation" checked={saturationFixed} onChange={e => setSaturationFixed(e.target.checked)} />
 										{!saturationFixed ?
-											<Slider name='saturation step' value={saturationStep} set={setSaturationStep} />
+											<Slider name='saturation step' min={-1.0} value={saturationStep} set={setSaturationStep} />
 										: 
 											<Slider name='saturation' value={saturation} set={setSaturation} />
 										}
 									</> : <>
 										<Slider name='lightness step' value={luminanceStep} set={setLuminanceStep} />
-										<Slider name='saturation step' value={saturationStep} set={setSaturationStep} />
+										<Slider name='saturation step' min={-1.0} value={saturationStep} set={setSaturationStep} />
 									</>}
 									<Gap />
 									<ErrorBoundary>
