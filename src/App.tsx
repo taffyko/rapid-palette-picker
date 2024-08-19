@@ -184,8 +184,8 @@ function Slider({ value, name, set, inFn, outFn, ...htmlProps }: React.Component
 
 function ColorPalettes({paletteSettings}: { paletteSettings: colors.PaletteSettings }) {
 	const [hsl, hsv, lch] = generatePalettes(paletteSettings);
-	
-	const [stylePage, setStylePage] = useState(true);
+
+	const [stylePage, setStylePage] = useState(false);
 
 	useLayoutEffect(() => {
 		if (stylePage) {
