@@ -1,13 +1,13 @@
-import { cloneElement, createContext, ReactElement, ReactNode, useContext, useEffect, useId, useLayoutEffect, useState } from 'react';
+import React, { cloneElement, createContext, ReactElement, ReactNode, useContext, useEffect, useId, useLayoutEffect, useState } from 'react';
 import './App.scss';
-import './pretty-checkbox.scss';
-import { generatePalettes, hexToRgb, normalizeColor, NormalizedSrgbColor, oklchToSrgb, quantizeColor, rgbToHex, srgbToOklch } from './colors';
+import { hexToRgb, normalizeColor, NormalizedSrgbColor, oklchToSrgb, quantizeColor, rgbToHex, srgbToOklch } from '@/colors.ts';
 import * as colors from './colors';
 import { randomRange, setClipboard } from './util';
 import { ErrorBoundary } from './error';
 import { useMediaQuery } from 'react-responsive';
-
-const PRECISION = 5;
+import { Checkbox } from '@/Checkbox';
+import { copyFormatContext, formatPalette, getColorFormats, PRECISION, TreeIdx, treeNodeByIndex } from './copy-format';
+import { generatePalettes, PaletteSettings } from './palette';
 
 interface ColorContext {
 	setHoveredColor: (c: NormalizedSrgbColor | null) => void,
@@ -22,18 +22,31 @@ const colorContext = createContext<ColorContext>({
 
 Object.defineProperty(window, 'colors', { value: colors, configurable: true });
 
+function Button(props: React.ComponentProps<'button'>) {
+	return <button {...props} onClick={e => {
+		e.currentTarget.classList.add('pressed');
+		e.currentTarget.clientWidth;
+		e.currentTarget.classList.remove('pressed');
+		props.onClick?.(e);
+	}} />
+}
+
 function ColorTile({ color, ...divProps }: Omit<React.ComponentProps<'div'>, 'color'> & { color: NormalizedSrgbColor }) {
 	const rgb = quantizeColor(color);
 	const ctx = useContext(colorContext);
+	const copyCtx = useContext(copyFormatContext);
 
 	return <div className="color-tile" {...divProps}
 		onClick={e => {
 			if (e.button === 0) {
 				if (e.ctrlKey) {
 					ctx.setStartingColor(srgbToOklch(color));
-				} else if (e.shiftKey) {
-					// TODO: shift-click: copy
 				} else {
+					const formats = getColorFormats(color);
+					const copyText = treeNodeByIndex(formats, copyCtx.currentFormat);
+					if (copyText) {
+						setClipboard(copyText);
+					}
 					ctx.setSelectedColor(color);
 				}
 				e.currentTarget.classList.add('pressed');
@@ -57,11 +70,18 @@ function ColorTile({ color, ...divProps }: Omit<React.ComponentProps<'div'>, 'co
 	</div>
 }
 
-function Copyable({ text }: { text: string, label?: string } ) {
-	// TODO: set preference for copying
-	return <code style={{cursor: 'pointer'}}
+function Copyable({ text, idx }: { idx: TreeIdx, text: string, label?: string } ) {
+	const copyCtx = useContext(copyFormatContext);
+	const selected = copyCtx.currentFormat.toString() === idx.toString();
+	return <code
+		style={{
+			cursor: 'pointer',
+			backgroundColor: selected ? 'var(--color-5)' : '',
+			color: selected ? 'var(--color-bg)' : '',
+		}}
 		onClick={e => {
 			if (e.button === 0) {
+				copyCtx.setCurrentFormat(idx);
 				e.currentTarget.classList.add('pressed');
 				e.currentTarget.clientWidth;
 				e.currentTarget.classList.remove('pressed');
@@ -71,12 +91,22 @@ function Copyable({ text }: { text: string, label?: string } ) {
 	>
 		{text}
 	</code>
-
 }
 
 function ColorPalette({ text, colors }: { text?: ReactNode, colors: NormalizedSrgbColor[] }) {
-	return <div className="vbox" style={{ flexWrap: 'wrap' }}>
-		<Labelled text={text} >
+	const copyCtx = useContext(copyFormatContext);
+
+	return <div className="hbox" style={{ flexWrap: 'wrap' }}>
+		<Labelled text={text} inline={<>
+			{colors.length > 1 ?
+				<Button style={{alignSelf: ''}} onClick={() => {
+					const text = formatPalette(colors, copyCtx.currentFormat);
+					setClipboard(text);
+				}}>
+					copy
+				</Button>
+			: null}
+		</>}>
 			<div className="color-palette">
 				{
 					colors.map((rgb, i) => {
@@ -89,37 +119,25 @@ function ColorPalette({ text, colors }: { text?: ReactNode, colors: NormalizedSr
 }
 
 function ColorInfo({ color: rgb }: { color: NormalizedSrgbColor }) {
-	const rgbLinear = colors.srgbToLinear(rgb);
-	const rgbu8 = quantizeColor(rgb);
-	const hex = rgbToHex(rgbu8);
-	const lab = colors.linearSrgbToOklab(rgbLinear)
-	const lch = colors.oklabToOklch(lab);
-	const hsl = colors.rgbToHsl(rgb);
-	const hsv = colors.rgbToHsv(rgb);
-	
-	function vecToString(color: colors.Vec3, integral?: boolean, suffix = ""): string {
-		return color.map(n => integral ? n : n.toFixed(PRECISION).replace(/(?<!\.)0+$/, '') + suffix).join(', ');
-	}
-	
+	const colorFormats = getColorFormats(rgb);
+
 	return <div className="vbox" style={{ textAlign: 'right', alignItems: 'flex-end'}}>
 		<ColorPalette colors={[rgb]} />
-		<Copyable text={`rgb(${vecToString(rgbu8, true)})`} />
-		<Copyable text={hex} />
-		<Copyable text={hex.replace('#', '')} />
-		<Copyable text={`rgb(${vecToString(rgb)})`} />
-		<Copyable text={`vec3(${vecToString(rgbLinear)})`} />
-		<Copyable text={`vec3(${vecToString(rgbLinear, false, 'f')})`} />
-		<Copyable text={`hsl(${vecToString(hsl)})`} />
-		<Copyable text={`hsv(${vecToString(hsv)})`} />
-		<Copyable text={`oklch(${vecToString(lch)})`} />
-		<Copyable text={`oklab(${vecToString(lab)})`} />
-		<Gap />
-		<Copyable text={`rgba(${vecToString(rgbu8, true)}, 255)`} />
-		<Copyable text={hex + 'ff'} />
-		<Copyable text={hex.replace('#', '') + 'ff'} />
-		<Copyable text={`rgba(${vecToString(rgb)}, 1.0)`} />
-		<Copyable text={`vec4(${vecToString(rgbLinear)}, 1.0)`} />
-		<Copyable text={`vec4(${vecToString(rgbLinear, false, 'f')}, 1.0f)`} />
+		{
+			colorFormats.map((v, i) => {
+				if (v instanceof Array) {
+					return <div key={i} className="hbox">
+						{v.map((v, j) => {
+							return <Copyable key={j} idx={[i, j]} text={v} />
+						})}
+					</div>
+				} else if (v == '') {
+					return <Gap key={i} />
+				} else {
+					return <Copyable key={i} idx={[i]} text={v} />
+				}
+			})
+		}
 	</div>
 }
 
@@ -179,10 +197,8 @@ function Slider({ value, name, set, inFn, outFn, ...htmlProps }: React.Component
 }
 
 // TODO: ctrl-V to paste to starting color
-// TODO: copy palette as array literal
-// TODO: fix saturation step
 
-function ColorPalettes({paletteSettings}: { paletteSettings: colors.PaletteSettings }) {
+function ColorPalettes({paletteSettings}: { paletteSettings: PaletteSettings }) {
 	const [hsl, hsv, lch] = generatePalettes(paletteSettings);
 
 	const [stylePage, setStylePage] = useState(false);
@@ -247,7 +263,7 @@ function App() {
 	
 	const [monochromatic, setMonochromatic] = useState(!!Math.round(Math.random()));
 
-	const paletteSettings: colors.PaletteSettings = {
+	const paletteSettings: PaletteSettings = {
 		startingColor: [l, c, h],
 		hueStep,
 		saturationStep,
@@ -266,84 +282,82 @@ function App() {
 		}
 	}, [startingColorHovered, ...paletteSettings.startingColor])
 	
+	const [currentFormat, setCurrentFormat] = useState<TreeIdx>(0);
+	
 	return (
 		<colorContext.Provider value={{
 			setHoveredColor,
 			setSelectedColor,
 			setStartingColor: (([l, c, h]) => { setL(l); setC(c); setH(h) }),
 		}}>
-			<div className="App">
-				<main>
-					<div className="vbox">
-						<div style={isDesktop ? {
-							display: 'flex',
-							flexFlow: 'row nowrap',
-						} : {
-							display: 'flex',
-							flexFlow: 'column nowrap',
-						}}>
-							<div className="vbox" style={{ flexGrow: 1, flexBasis: '50%' }}>
-								<button onClick={randomize}>randomize</button>
-								<div className="vbox">
-									<div
-										className="hbox"
-										onMouseEnter={() => { setStartingColorHovered(true); }}
-										onMouseLeave={() => { setStartingColorHovered(false); setHoveredColor(null); }}
-									>
-										<div className="vbox" style={{flexGrow: 1}}>
-											<Slider name={'[L] luminance'} value={l} set={(n) => setL(n)} />
-											<Slider name={'[c] chroma'} value={c} inFn={n => Math.cbrt(n)} outFn={n => n**3} set={(n) => setC(n)} />
-											<Slider name={'[h] hue'} value={h} set={setH} />
+			<copyFormatContext.Provider value={{
+				currentFormat,
+				setCurrentFormat,
+			}}>
+				<div className="App">
+					<main>
+						<div className="vbox">
+							<div style={isDesktop ? {
+								display: 'flex',
+								flexFlow: 'row nowrap',
+							} : {
+								display: 'flex',
+								flexFlow: 'column nowrap',
+							}}>
+								<div className="vbox" style={{ flexGrow: 1, flexBasis: '50%' }}>
+									<Button onClick={randomize}>randomize</Button>
+									<div className="vbox">
+										<div
+											className="hbox"
+											onMouseEnter={() => { setStartingColorHovered(true); }}
+											onMouseLeave={() => { setStartingColorHovered(false); setHoveredColor(null); }}
+										>
+											<div className="vbox" style={{flexGrow: 1}}>
+												<Slider name={'[L] luminance'} value={l} set={(n) => setL(n)} />
+												<Slider name={'[c] chroma'} value={c} inFn={n => Math.cbrt(n)} outFn={n => n**3} set={(n) => setC(n)} />
+												<Slider name={'[h] hue'} value={h} set={setH} />
+											</div>
+											<ColorPicker set={setLch} value={[l, c, h]} />
 										</div>
-										<ColorPicker set={setLch} value={[l, c, h]} />
-									</div>
-									<Gap />
-									<Labelled row text="color count">
-										<input type="number" value={colorCount} onChange={(e) => setColorCount(parseInt(e.target.value))} />
-									</Labelled>
-									<Gap />
-									<Checkbox label="monochromatic" checked={monochromatic} onChange={e => setMonochromatic(e.target.checked)} />
-									{!monochromatic ? <>
-										<Slider name='hue step' min={-1.0} max={1.0} value={hueStep} set={setHueStep} />
-										<Checkbox label="constant lightness" checked={luminanceFixed} onChange={e => setLuminanceFixed(e.target.checked)} />
-										{!luminanceFixed ?
+										<Gap />
+										<Labelled row text="color count">
+											<input type="number" value={colorCount} onChange={(e) => setColorCount(parseInt(e.target.value))} />
+										</Labelled>
+										<Gap />
+										<Checkbox label="monochromatic" checked={monochromatic} onChange={e => setMonochromatic(e.target.checked)} />
+										{!monochromatic ? <>
+											<Slider name='hue step' min={-1.0} max={1.0} value={hueStep} set={setHueStep} />
+											<Checkbox label="constant lightness" checked={luminanceFixed} onChange={e => setLuminanceFixed(e.target.checked)} />
+											{!luminanceFixed ?
+												<Slider name='lightness step' value={luminanceStep} set={setLuminanceStep} />
+											: null}
+											<Checkbox label="constant saturation" checked={saturationFixed} onChange={e => setSaturationFixed(e.target.checked)} />
+											{!saturationFixed ?
+												<Slider name='saturation step' min={-1.0} value={saturationStep} set={setSaturationStep} />
+											:
+												<Slider name='saturation' value={saturation} set={setSaturation} />
+											}
+										</> : <>
 											<Slider name='lightness step' value={luminanceStep} set={setLuminanceStep} />
-										: null}
-										<Checkbox label="constant saturation" checked={saturationFixed} onChange={e => setSaturationFixed(e.target.checked)} />
-										{!saturationFixed ?
 											<Slider name='saturation step' min={-1.0} value={saturationStep} set={setSaturationStep} />
-										: 
-											<Slider name='saturation' value={saturation} set={setSaturation} />
-										}
-									</> : <>
-										<Slider name='lightness step' value={luminanceStep} set={setLuminanceStep} />
-										<Slider name='saturation step' min={-1.0} value={saturationStep} set={setSaturationStep} />
-									</>}
-									<Gap />
-									<ErrorBoundary>
-										<ColorPalettes paletteSettings={paletteSettings} />
-									</ErrorBoundary>
+										</>}
+										<Gap />
+										<ErrorBoundary>
+											<ColorPalettes paletteSettings={paletteSettings} />
+										</ErrorBoundary>
+									</div>
+								</div>
+								<div className="vbox" style={{ flexGrow: 1, flexBasis: '25%' }}>
+									<ColorInfo color={hoveredColor ?? selectedColor} />
 								</div>
 							</div>
-							<div className="vbox" style={{ flexGrow: 1, flexBasis: '25%' }}>
-								<ColorInfo color={hoveredColor ?? selectedColor} />
-							</div>
 						</div>
-					</div>
-				</main>
-			</div>
+					</main>
+				</div>
+			</copyFormatContext.Provider>
 		</colorContext.Provider>
 	);
 }
 
-function Checkbox(props: React.ComponentProps<'input'> & { label?: string }) {
-	const id = useId();
-	return <div className="pretty p-switch p-fill">
-		<input type="checkbox" {...props} id={id} />
-		<div className="state">
-			<label htmlFor={id}>{props.label}</label>
-		</div>
-	</div>
-}
 
 export default App;

@@ -65,15 +65,6 @@
   background-color: transparent;
 }
 
-.pretty .state label:before {
-  border-color: green;
-}
-
-.pretty .state.p-is-hover,
-.pretty .state.p-is-indeterminate {
-  display: none;
-}
-
 .pretty.p-switch {
 	margin: 8px 0;
 }
@@ -117,20 +108,7 @@
 }
 
 .pretty.p-switch .state label:after {
-  background-color: var(--color-text) !important;
-}
-
-.pretty.p-switch input:checked ~ .state:before {
-  border-color: var(--color-border);
-}
-
-.pretty.p-switch input:checked ~ .state label:before {
-  opacity: 0;
-}
-
-.pretty.p-switch input:checked ~ .state label:after {
-  background-color: red;
-  left: 1em;
+  background-color: var(--color-text);
 }
 
 .pretty.p-switch.p-fill input:checked ~ .state:before {
@@ -145,33 +123,4 @@
 .pretty.p-switch.p-fill input:checked ~ .state label:after {
   background-color: var(--color-text) !important;
   left: 1em;
-}
-
-.pretty.p-has-hover input:hover ~ .state:not(.p-is-hover) {
-  display: none;
-}
-
-.pretty.p-has-hover input:hover ~ .state.p-is-hover {
-  display: block;
-}
-
-.pretty.p-has-hover input:hover ~ .state.p-is-hover .icon {
-  display: block;
-}
-
-.pretty.p-has-focus input:focus ~ .state label:before {
-  box-shadow: 0px 0px 3px 0px orange;
-}
-
-.pretty.p-has-indeterminate input[type='checkbox']:indeterminate ~ .state:not(.p-is-indeterminate) {
-  display: none;
-}
-
-.pretty.p-has-indeterminate input[type='checkbox']:indeterminate ~ .state.p-is-indeterminate {
-  display: block;
-}
-
-.pretty.p-has-indeterminate input[type='checkbox']:indeterminate ~ .state.p-is-indeterminate .icon {
-  display: block;
-  opacity: 1;
 }

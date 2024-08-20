@@ -160,9 +160,21 @@ input[type=number], select, button {
 	background-color: var(--color-fg);
 }
 
+button {
+	filter: brightness(100%);
+	transform: scale(1.0);
+	transition: all 1.0s cubic-bezier(0, 0, 0, 1.1);
+	&.pressed {
+		filter: brightness(50%);
+		transform: scale(0.9);
+		transition: none;
+	}
+}
+
 code {
 	background-color: var(--color-fg);
-	transition: filter 1.0s cubic-bezier(0, 0, 0, 1.1);
+	transition: filter 1.0s cubic-bezier(0, 0, 0, 1.1),
+		background-color 0.5s cubic-bezier(0, 0, 0, 1.1);
 	filter: brightness(100%);
 	border: solid 1px var(--color-border);
 	padding: calc($gap / 8) $gap;
